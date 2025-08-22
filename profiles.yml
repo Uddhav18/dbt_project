@@ -1,0 +1,13 @@
+crypto:
+  outputs:
+    dev:
+      account: apgazqy-ex48851
+      database: DB_DEV
+      password: UddhavGavhane@18
+      role: DB_UDDHAV_GAVHANE
+      schema: landing
+      threads: 4
+      type: snowflake
+      user: Uddhav18
+      warehouse: developer
+  target: dev
