@@ -1,3 +1,10 @@
+{{ config(
+    materialized = 'incremental',
+    unique_key = 'id||symbol||snapshot_date',
+    incremental_strategy = 'insert_overwrite',
+    partition_by = {'field': 'snapshot_date', 'data_type': 'date'}
+) }}
+
 WITH daily_data AS (
     SELECT
         id,
@@ -9,6 +16,12 @@ WITH daily_data AS (
         MAX(roi_percentage) AS roi_percentage,
         MAX(roi_times) AS roi_times
     FROM {{ ref('st_crypto_model') }}
+    
+    {% if is_incremental() %}
+        -- Only load new data since the max snapshot_date already present
+        WHERE last_updated > (SELECT MAX(snapshot_date) FROM {{ this }})
+    {% endif %}
+
     GROUP BY id, symbol, DATE_TRUNC('day', last_updated)
 )
 
@@ -17,6 +30,7 @@ SELECT
     close_price - LAG(close_price) OVER (PARTITION BY symbol ORDER BY snapshot_date) AS price_change,
     CASE 
         WHEN LAG(close_price) OVER (PARTITION BY symbol ORDER BY snapshot_date) IS NULL THEN NULL
-        ELSE (close_price - LAG(close_price) OVER (PARTITION BY symbol ORDER BY snapshot_date)) / LAG(close_price) OVER (PARTITION BY symbol ORDER BY snapshot_date) * 100
+        ELSE (close_price - LAG(close_price) OVER (PARTITION BY symbol ORDER BY snapshot_date)) 
+             / LAG(close_price) OVER (PARTITION BY symbol ORDER BY snapshot_date) * 100
     END AS price_change_pct
 FROM daily_data
